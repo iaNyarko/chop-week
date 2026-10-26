@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Plan a week of Ghanaian meals, see the cost against your budget, and get a market shopping list.">
+<meta name="theme-color" content="#C4471B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chop Week">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23C4471B'/%3E%3Ctext x='50' y='68' font-size='54' text-anchor='middle' font-family='Arial' font-weight='700' fill='white'%3ECW%3C/text%3E%3C/svg%3E">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Chop Week Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: phone-first planner. Sticky header with week switcher; three tabs (Plan / Shopping / Prices) in a fixed bottom bar; meal picker in a bottom sheet. */
+:root{
+  --bg:#F5F4EF; --surface:#FFFFFF; --sunk:#ECEAE2; --ink:#1B1A16; --muted:#67645A; --line:#DEDBD0;
+  --palm:#C4471B; --palm-soft:#F8E3D8; --leaf:#3D7A22; --leaf-soft:#E2EFD9; --gold:#B7860B;
+  --ok:#3D7A22; --warn:#B26A00; --bad:#C23A2B; --warn-soft:#FBEFD9; --bad-soft:#FBE3E0;
+  --shadow:0 10px 30px -14px rgba(40,30,10,.4);
+  --f-display:"Sora", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#12110E; --surface:#1B1A16; --sunk:#24221D; --ink:#EEEBE3; --muted:#A39F92; --line:#302E27;
+  --palm:#EE7442; --palm-soft:#3B2117; --leaf:#7CC152; --leaf-soft:#1F2E17; --gold:#DDB043;
+  --ok:#7CC152; --warn:#E9A944; --bad:#F27766; --warn-soft:#3A2C12; --bad-soft:#3D1D19;
+  --shadow:0 10px 30px -14px rgba(0,0,0,.7); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#12110E; --surface:#1B1A16; --sunk:#24221D; --ink:#EEEBE3; --muted:#A39F92; --line:#302E27;
+  --palm:#EE7442; --palm-soft:#3B2117; --leaf:#7CC152; --leaf-soft:#1F2E17; --gold:#DDB043;
+  --ok:#7CC152; --warn:#E9A944; --bad:#F27766; --warn-soft:#3A2C12; --bad-soft:#3D1D19;
+  --shadow:0 10px 30px -14px rgba(0,0,0,.7); color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 110px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--palm);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:14px;padding-top:12px}
+
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-top:12px;padding-bottom:8px;
+  margin:0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line)}
+.hrow{max-width:600px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.brand{font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:-.02em}
+.brand span{color:var(--palm)}
+.wk{display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.wk button{border:0;background:none;width:32px;height:32px;border-radius:50%;font-size:18px;color:var(--muted)}
+.wk span{font-size:13px;font-weight:600;min-width:112px;text-align:center}
+
+.budget{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.brow{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.big{font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1;letter-spacing:-.02em}
+.big small{font-size:15px;color:var(--muted);font-weight:600;margin-right:3px}
+.of{font-size:13px;color:var(--muted);text-align:right}
+.of b{color:var(--ink)}
+.meter{height:10px;border-radius:99px;background:var(--sunk);overflow:hidden;display:flex}
+.meter i{display:block;height:100%}
+.meter .c{background:var(--leaf)} .meter .b{background:var(--gold)}
+.meter.over .c,.meter.over .b{background:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.status{font-size:13px;font-weight:600;padding:8px 10px;border-radius:10px}
+.status.ok{background:var(--leaf-soft);color:var(--ok)} .status.over{background:var(--bad-soft);color:var(--bad)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:12px;padding:11px 14px;font-weight:700;background:var(--palm);color:#fff}
+.btn.ghost{background:var(--sunk);color:var(--ink)}
+.btn.block{width:100%}
+.btn.sm{padding:8px 12px;font-size:13px}
+
+.day{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.dayh{display:flex;justify-content:space-between;align-items:baseline;padding:10px 14px;background:var(--sunk);font-weight:700;font-size:14px}
+.dayh span{color:var(--muted);font-weight:600;font-size:12px}
+.dayh.today{background:var(--palm-soft)}
+.dayh.today b{color:var(--palm)}
+.slot{display:grid;grid-template-columns:72px 1fr auto;gap:10px;align-items:center;width:100%;border:0;border-top:1px solid var(--line);background:none;text-align:left;padding:11px 14px}
+.slot:first-of-type{border-top:0}
+.slot:hover{background:var(--sunk)}
+.slot .when{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.slot .what{font-weight:600;font-size:14px;min-width:0}
+.slot .what small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.slot .empty{color:var(--muted);font-weight:500;font-style:italic}
+.slot .cost{font-size:13px;font-weight:700;white-space:nowrap}
+.tag{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:5px;margin-right:6px;vertical-align:1px}
+.tag.cook{background:var(--leaf-soft);color:var(--leaf)} .tag.buy{background:var(--warn-soft);color:var(--gold)} .tag.left{background:var(--sunk);color:var(--muted)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.ch{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ch h2{margin:0;font-family:var(--f-display);font-size:16px;font-weight:700}
+.ch .sub{font-size:13px;color:var(--muted)}
+.note{font-size:13px;color:var(--muted);margin:0}
+.batches{display:flex;flex-direction:column;gap:6px}
+.bitem{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:8px 10px;background:var(--sunk);border-radius:10px}
+.bitem small{color:var(--muted)}
+.sect h3{margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.sitem{display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:center;padding:9px 2px;border-top:1px solid var(--line)}
+.sitem:first-of-type{border-top:0}
+.sitem input{width:20px;height:20px;margin:0;accent-color:var(--leaf)}
+.sitem .n{font-weight:600;font-size:14px;min-width:0}
+.sitem .n small{display:block;color:var(--muted);font-weight:500;font-size:12px}
+.sitem.got .n{text-decoration:line-through;color:var(--muted)}
+.sitem .p{font-weight:700;font-size:14px}
+.tot{display:flex;justify-content:space-between;font-weight:700;font-size:15px;padding-top:10px;border-top:2px solid var(--ink)}
+
+.prow{display:grid;grid-template-columns:1fr 112px;gap:10px;align-items:center;padding:6px 0}
+.prow .n{font-weight:600;font-size:14px;min-width:0}
+.prow .n small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+.cedi-in{position:relative}
+.cedi-in span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none}
+.cedi-in input{width:100%;padding:9px 10px 9px 40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);text-align:right;font-variant-numeric:tabular-nums;min-width:0}
+input[type=text],input[type=number],select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);min-width:0}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two>*{min-width:0}
+
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
+  padding:6px max(16px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;justify-content:center}
+nav.tabs .in{max-width:600px;width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+nav.tabs button{border:0;background:none;padding:9px 4px;border-radius:12px;font-weight:700;font-size:13px;color:var(--muted)}
+nav.tabs button[aria-current="page"]{background:var(--palm-soft);color:var(--palm)}
+
+.scrim{position:fixed;inset:0;background:rgba(10,8,4,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:600px;border-radius:22px 22px 0 0;max-height:88%;overflow:auto;display:flex;flex-direction:column;gap:14px;
+  padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){.sheet{animation:none}}
+.sheet h3{margin:0;font-family:var(--f-display);font-size:18px}
+.mgroup h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.mlist{display:flex;flex-direction:column;gap:6px}
+.mopt{display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px}
+.mopt b{font-size:14px}
+.mopt small{color:var(--muted);font-size:12px;grid-column:1}
+.mopt .c{grid-row:span 2;align-self:center;font-weight:700;font-size:14px}
+.mopt[aria-pressed="true"]{border-color:var(--palm);background:var(--palm-soft)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;z-index:30;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+.mode{font-size:12px;color:var(--muted);margin:0}
+</style>
+</head>
+<body>
+
+
+<header>
+  <div class="hrow">
+    <div class="brand">Chop <span>Week</span></div>
+    <div class="wk" aria-label="Week"><button id="prev" aria-label="Previous week">‹</button><span id="wlabel" class="num">…</span><button id="next" aria-label="Next week">›</button></div>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<nav class="tabs" aria-label="Sections"><div class="in">
+  <button data-tab="plan" aria-current="page">Plan</button>
+  <button data-tab="shop">Shopping list</button>
+  <button data-tab="prices">Prices & settings</button>
+</div></nav>
+<div id="sheetHost"></div><div id="toastHost"></div>
+
+<script>
+(function(){
+/* ---------- data: ingredients (starting prices are rough Accra guesses; the user edits them) ---------- */
+const ING={
+ rice:{n:'Rice',u:'kg',p:25,step:.5,s:'Provisions shop'},
+ spaghetti:{n:'Spaghetti',u:'pack (500 g)',p:15,step:1,s:'Provisions shop'},
+ oil:{n:'Vegetable oil',u:'litre',p:35,step:.5,s:'Provisions shop'},
+ paste:{n:'Tomato paste',u:'sachet',p:4,step:1,s:'Provisions shop'},
+ sardine:{n:'Sardine',u:'tin',p:12,step:1,s:'Provisions shop'},
+ milk:{n:'Evaporated milk',u:'tin',p:8,step:1,s:'Provisions shop'},
+ sugar:{n:'Sugar',u:'kg',p:15,step:.5,s:'Provisions shop'},
+ bread:{n:'Bread',u:'loaf',p:15,step:1,s:'Provisions shop'},
+ tombrown:{n:'Tom brown mix',u:'pack',p:15,step:1,s:'Provisions shop'},
+ cube:{n:'Seasoning cubes',u:'pack',p:5,step:1,s:'Provisions shop'},
+ gnut:{n:'Groundnut paste',u:'jar',p:25,step:1,s:'Provisions shop'},
+ tomato:{n:'Tomatoes',u:'bowl',p:15,step:.5,s:'Market'},
+ onion:{n:'Onions',u:'bulb',p:2,step:1,s:'Market'},
+ pepper:{n:'Pepper',u:'bowl',p:5,step:.5,s:'Market'},
+ garden:{n:'Garden eggs',u:'bowl',p:10,step:.5,s:'Market'},
+ okro:{n:'Okro',u:'bowl',p:10,step:.5,s:'Market'},
+ kontomire:{n:'Kontomire',u:'bunch',p:5,step:1,s:'Market'},
+ plantain:{n:'Plantain',u:'finger',p:4,step:1,s:'Market'},
+ yam:{n:'Yam',u:'tuber',p:30,step:.5,s:'Market'},
+ cassava:{n:'Cassava',u:'kg',p:8,step:.5,s:'Market'},
+ banku:{n:'Banku mix (corn & cassava dough)',u:'kg',p:15,step:.5,s:'Market'},
+ beans:{n:'Beans',u:'kg',p:30,step:.5,s:'Market'},
+ gari:{n:'Gari',u:'kg',p:15,step:.5,s:'Market'},
+ palmoil:{n:'Palm oil',u:'bottle (500 ml)',p:20,step:1,s:'Market'},
+ smoked:{n:'Smoked fish',u:'piece',p:15,step:1,s:'Fish, meat & eggs'},
+ chicken:{n:'Chicken',u:'kg',p:60,step:.5,s:'Fish, meat & eggs'},
+ eggs:{n:'Eggs',u:'egg',p:2.5,step:1,s:'Fish, meat & eggs'},
+};
+const SECTIONS=['Market','Fish, meat & eggs','Provisions shop'];
+/* cook-at-home dishes: one batch makes `sv` servings */
+const COOK=[
+ {id:'jollof',n:'Jollof rice with chicken',sv:4,m:['lunch','supper'],i:{rice:.5,tomato:1,onion:2,paste:1,oil:.15,cube:.2,chicken:.5}},
+ {id:'ricestew',n:'Plain rice & egg stew',sv:6,m:['lunch','supper'],i:{rice:.6,tomato:1,onion:2,paste:2,oil:.2,cube:.2,eggs:4}},
+ {id:'redred',n:'Red red (beans & fried plantain)',sv:4,m:['lunch','supper'],i:{beans:.5,palmoil:.3,plantain:4,gari:.2,onion:1,tomato:.5,pepper:.3}},
+ {id:'bankuokro',n:'Banku & okro soup',sv:4,m:['lunch','supper'],i:{banku:1,okro:1,smoked:1,palmoil:.2,pepper:.5,onion:1,cube:.2}},
+ {id:'ampesi',n:'Ampesi & kontomire stew',sv:4,m:['lunch','supper'],i:{yam:1,plantain:2,kontomire:2,palmoil:.2,eggs:3,onion:1,tomato:.5}},
+ {id:'fufu',n:'Fufu & light soup (chicken)',sv:4,m:['supper'],i:{cassava:2,plantain:3,chicken:.75,tomato:.5,onion:2,pepper:.3,garden:.5,cube:.2}},
+ {id:'omotuo',n:'Omo tuo & groundnut soup',sv:4,m:['supper'],i:{gnut:1,rice:.5,chicken:.5,tomato:.5,onion:1,pepper:.3}},
+ {id:'yamegg',n:'Boiled yam & egg stew',sv:3,m:['lunch','supper','breakfast'],i:{yam:.5,eggs:4,tomato:.5,onion:1,oil:.1}},
+ {id:'spag',n:'Spaghetti with sardine',sv:3,m:['lunch','supper'],i:{spaghetti:1,sardine:1,paste:1,onion:1,oil:.05}},
+ {id:'teabread',n:'Tea, bread & fried egg',sv:1,m:['breakfast'],i:{bread:.25,eggs:1,milk:.25,sugar:.03}},
+ {id:'tombrown',n:'Tom brown porridge',sv:4,m:['breakfast'],i:{tombrown:1,milk:1,sugar:.1}},
+ {id:'soakings',n:'Gari soakings',sv:1,m:['breakfast','supper'],i:{gari:.15,milk:.25,sugar:.05}},
+];
+/* bought meals: price per plate */
+const BUY=[
+ {id:'b_waakye',n:'Waakye (with egg & gari)',p:25,m:['breakfast','lunch','supper']},
+ {id:'b_koko',n:'Hausa koko & koose',p:10,m:['breakfast']},
+ {id:'b_kenkey',n:'Kenkey, fried fish & pepper',p:25,m:['lunch','supper']},
+ {id:'b_chopbar',n:'Chop bar lunch',p:35,m:['lunch']},
+ {id:'b_jollof',n:'Jollof from a vendor',p:30,m:['lunch','supper']},
+ {id:'b_banku',n:'Banku & tilapia',p:60,m:['lunch','supper']},
+ {id:'b_gob3',n:'Gari & beans (gob3)',p:15,m:['breakfast','lunch','supper']},
+ {id:'b_ricewater',n:'Rice water',p:8,m:['breakfast']},
+];
+const MEALS=['breakfast','lunch','supper'];
+const MEAL_NAME={breakfast:'Breakfast',lunch:'Lunch',supper:'Supper'};
+const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf=new Intl.NumberFormat('en-GH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const cedi=v=>'GH₵ '+nf.format(v||0);
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+function monday(d){const x=new Date(d);x.setHours(0,0,0,0);const k=(x.getDay()+6)%7;x.setDate(x.getDate()-k);return x;}
+const PLURAL={bulb:'bulbs',egg:'eggs',finger:'fingers',bunch:'bunches',tin:'tins',sachet:'sachets',loaf:'loaves',piece:'pieces',tuber:'tubers',bowl:'bowls',jar:'jars',pack:'packs',bottle:'bottles',litre:'litres'};
+const fmtQty=(q,u)=>{const r=Math.round(q*100)/100;let unit=u;if(r>1){const w=u.split(' ')[0];if(PLURAL[w])unit=PLURAL[w]+u.slice(w.length);}return r+' '+unit;};
+function toast(m){const h=$('#toastHost');h.innerHTML='<div class="toast" role="status">'+esc(m)+'</div>';clearTimeout(toast.t);toast.t=setTimeout(()=>h.innerHTML='',2400);}
+
+/* ---------- state + storage (one private document) ---------- */
+const DOC0={settings:{budget:175,people:1,workLunch:false},prices:{},buyPrices:{},custom:[],weeks:{}};
+let doc=JSON.parse(JSON.stringify(DOC0));
+const ui={tab:'plan',week:monday(new Date()),mode:'pending'};
+const store={ref:null};
+const LK='chopweek.v1';
+function price(id){return doc.prices[id]!=null?doc.prices[id]:ING[id].p;}
+function buyList(){return BUY.map(b=>Object.assign({},b,{p:doc.buyPrices[b.id]!=null?doc.buyPrices[b.id]:b.p})).concat(doc.custom.map(c=>({id:c.id,n:c.n,p:c.p,m:MEALS,custom:true})));}
+function batchCost(d){let t=0;for(const k in d.i)t+=d.i[k]*price(k);return t;}
+const perServing=d=>batchCost(d)/d.sv;
+function meal(id){if(!id)return null;if(id==='left')return {id,n:'Leftovers',kind:'left',p:0};if(id==='skip')return {id,n:'Skip / not eating',kind:'left',p:0};
+  const c=COOK.find(x=>x.id===id);if(c)return Object.assign({kind:'cook'},c);const b=buyList().find(x=>x.id===id);if(b)return Object.assign({kind:'buy'},b);return null;}
+const wkey=()=>ymd(ui.week);
+function week(){const k=wkey();if(!doc.weeks[k])doc.weeks[k]={slots:{},got:{}};return doc.weeks[k];}
+
+let saveT=null,saving=false,pending=false;
+function persist(){clearTimeout(saveT);saveT=setTimeout(flush,500);}
+async function flush(){
+  saveT=null;
+  // keep only the latest 12 weeks
+  const ks=Object.keys(doc.weeks).sort();while(ks.length>12)delete doc.weeks[ks.shift()];
+  if(ui.mode==='db'){if(saving){pending=true;return;}saving=true;try{await store.ref.set(doc);}catch(e){toast('Could not save. Check your connection.');}saving=false;if(pending){pending=false;flush();}}
+  else{try{localStorage.setItem(LK,JSON.stringify(doc));}catch(e){}}
+}
+function merge(d){doc=Object.assign(JSON.parse(JSON.stringify(DOC0)),d||{});doc.settings=Object.assign({},DOC0.settings,(d||{}).settings||{});}
+async function init(){
+  render();
+  let db=null,user=null,id=null;
+  try{if(window.claude&&window.claude.use){[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);if(user)id=await user.id();}}catch(e){}
+  if(db&&id){
+    ui.mode='db';store.ref=db.doc('data/users/'+id+'/planner');
+    let first=true;
+    store.ref.onSnapshot(s=>{
+      if(first||(!saveT&&!saving&&!s.metadata.hasPendingWrites))merge(s.exists?s.data():null);
+      first=false;render();
+    },()=>toast('Could not load your plan. Reload to try again.'));
+  }else{ui.mode='local';try{merge(JSON.parse(localStorage.getItem(LK)));}catch(e){}render();}
+}
+
+/* ---------- planning maths ---------- */
+function weekSummary(){
+  const w=week(),people=Math.max(1,doc.settings.people||1);
+  const servings={};let buy=0;const buyCount={};
+  for(let d=0;d<7;d++)for(const m of MEALS){const x=meal(w.slots[d+'-'+m]);if(!x)continue;
+    if(x.kind==='cook')servings[x.id]=(servings[x.id]||0)+people;
+    else if(x.kind==='buy'){buy+=x.p*people;buyCount[x.id]=(buyCount[x.id]||0)+people;}}
+  const batches=[];const need={};
+  for(const id in servings){const d=COOK.find(x=>x.id===id);const b=Math.ceil(servings[id]/d.sv);batches.push({d,b,serv:servings[id],spare:b*d.sv-servings[id]});
+    for(const k in d.i)need[k]=(need[k]||0)+d.i[k]*b;}
+  const items=Object.keys(need).map(k=>{const st=ING[k].step;const q=Math.max(st,Math.ceil(need[k]/st-1e-9)*st);return {k,q,cost:q*price(k)};});
+  const cook=items.reduce((a,x)=>a+x.cost,0);
+  return {batches,items,cook,buy,buyCount,total:cook+buy};
+}
+function autoFill(){
+  const w=week(),people=Math.max(1,doc.settings.people||1),budget=doc.settings.budget||0;
+  const bfast=['teabread','tombrown','soakings','b_koko','teabread','yamegg','b_ricewater'];
+  const mains=COOK.filter(c=>c.m.includes('supper')&&c.sv>=3).map(c=>c.id);
+  // shuffle mains, then try cheaper sets until it fits the budget
+  const shuffled=mains.slice().sort(()=>Math.random()-.5);
+  const cheap=shuffled.slice().sort((a,b)=>perServing(meal(a))-perServing(meal(b)));
+  const tries=[[shuffled,bfast],[cheap,bfast],[cheap.slice(0,3),bfast],[cheap.slice(0,3),['tombrown','soakings','tombrown','soakings','tombrown','soakings','tombrown']]];
+  let best=null;
+  for(const [list,bf] of tries){
+    const slots=Object.assign({},w.slots);
+    for(let d=0;d<7;d++)if(!slots[d+'-breakfast'])slots[d+'-breakfast']=bf[d];
+    // fill lunch/supper in sequence; each dish covers one batch worth of meals
+    const seq=[];for(let d=0;d<7;d++){seq.push(d+'-lunch');seq.push(d+'-supper');}
+    let li=0,left=0,cur=null;
+    for(const key of seq){
+      if(slots[key])continue;
+      const d=Number(key.split('-')[0]);
+      if(key.endsWith('lunch')&&doc.settings.workLunch&&d<5){slots[key]='b_chopbar';continue;}
+      if(left<=0){cur=list[li%list.length];li++;left=Math.floor(meal(cur).sv/people)||1;}
+      slots[key]=cur;left--;
+    }
+    const prev=w.slots;w.slots=slots;const s=weekSummary();w.slots=prev;
+    if(!best||s.total<best.total)best={slots,total:s.total};
+    if(s.total<=budget){best={slots,total:s.total};break;}
+  }
+  w.slots=best.slots;persist();render();
+  toast(best.total<=budget?'Week filled within your budget':'Filled, but over budget. Swap a few meals for cheaper ones.');
+}
+
+/* ---------- render ---------- */
+function render(){
+  const end=addDays(ui.week,6);
+  $('#wlabel').textContent=ui.week.getDate()+' '+MON[ui.week.getMonth()]+' – '+end.getDate()+' '+MON[end.getMonth()];
+  $$('nav.tabs [data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===ui.tab?'page':'false'));
+  const m=$('#main');
+  m.innerHTML=(ui.mode==='pending'?'<p class="mode">Loading your plan…</p>':ui.mode==='local'?'<p class="mode">Your plan is saved on this phone only.</p>':'')+
+    (ui.tab==='plan'?planView():ui.tab==='shop'?shopView():pricesView());
+}
+function budgetCard(s){
+  const b=doc.settings.budget||0,over=b&&s.total>b;
+  const pc=b?Math.min(100,s.cook/Math.max(b,s.total)*100):0,pb=b?Math.min(100-pc,s.buy/Math.max(b,s.total)*100):0;
+  let h='<section class="budget"><div class="brow"><div><div class="note" style="font-weight:600">This week’s food</div><div class="big num"><small>GH₵</small>'+nf.format(s.total)+'</div></div>'+
+    '<div class="of">Budget<br><b class="num">'+cedi(b)+'</b></div></div>';
+  h+='<div class="meter'+(over?' over':'')+'"><i class="c" style="width:'+pc.toFixed(1)+'%"></i><i class="b" style="width:'+pb.toFixed(1)+'%"></i></div>';
+  h+='<div class="legend"><span><i style="background:var(--leaf)"></i>Market shopping '+cedi(s.cook)+'</span><span><i style="background:var(--gold)"></i>Buying out '+cedi(s.buy)+'</span></div>';
+  if(b&&s.total)h+='<div class="status '+(over?'over':'ok')+'">'+(over?'Over budget by '+cedi(s.total-b)+'. Try more home-cooked batches or cheaper breakfasts.':cedi(b-s.total)+' left in your weekly budget.')+'</div>';
+  return h+'</section>';
+}
+function planView(){
+  const s=weekSummary(),w=week(),today=ymd(new Date());
+  let h=budgetCard(s);
+  h+='<div class="actions"><button class="btn" data-act="fill">Fill empty meals</button><button class="btn ghost" data-act="clear">Clear week</button><button class="btn ghost" data-act="copy">Copy last week</button></div>';
+  if(s.batches.length){
+    h+='<section class="card"><div class="ch"><h2>Cooking this week</h2><span class="sub">Cook once, eat for days</span></div><div class="batches">'+
+      s.batches.map(x=>'<div class="bitem"><span><b>'+esc(x.d.n)+'</b><br><small>'+x.serv+' serving'+(x.serv===1?'':'s')+' planned'+(x.spare?' · '+x.spare+' spare':'')+'</small></span><span class="num" style="text-align:right">'+x.b+' batch'+(x.b===1?'':'es')+'<br><small>'+cedi(batchCost(x.d)*x.b)+'</small></span></div>').join('')+'</div></section>';
+  }
+  for(let d=0;d<7;d++){
+    const date=addDays(ui.week,d),isT=ymd(date)===today;
+    h+='<section class="day"><div class="dayh'+(isT?' today':'')+'"><b>'+DOW[d]+' '+date.getDate()+' '+MON[date.getMonth()]+'</b><span>'+(isT?'Today':'')+'</span></div>';
+    for(const m of MEALS){
+      const x=meal(w.slots[d+'-'+m]);
+      let what='<span class="empty">Tap to plan</span>',cost='';
+      if(x){const tg=x.kind==='cook'?'<span class="tag cook">Cook</span>':x.kind==='buy'?'<span class="tag buy">Buy</span>':'<span class="tag left">—</span>';
+        what=tg+esc(x.n);cost=x.kind==='cook'?'~'+cedi(perServing(x)*(doc.settings.people||1)):x.kind==='buy'?cedi(x.p*(doc.settings.people||1)):'';}
+      h+='<button class="slot" data-slot="'+d+'-'+m+'"><span class="when">'+MEAL_NAME[m]+'</span><span class="what">'+what+'</span><span class="cost num">'+cost+'</span></button>';
+    }
+    h+='</section>';
+  }
+  return h;
+}
+function shopView(){
+  const s=weekSummary(),w=week();
+  if(!s.items.length&&!s.buy)return '<section class="card"><div class="ch"><h2>Shopping list</h2></div><p class="note">Plan some home-cooked meals and your market list will build itself here, with quantities rounded to what you can actually buy.</p></section>';
+  let h='';
+  if(s.items.length){
+    const got=s.items.filter(x=>w.got[x.k]).length;
+    h+='<section class="card"><div class="ch"><h2>Market list</h2><span class="sub">'+got+' of '+s.items.length+' bought</span></div>';
+    for(const sec of SECTIONS){const it=s.items.filter(x=>ING[x.k].s===sec);if(!it.length)continue;
+      h+='<div class="sect"><h3>'+sec+'</h3>'+it.map(x=>'<label class="sitem'+(w.got[x.k]?' got':'')+'"><input type="checkbox" data-got="'+x.k+'"'+(w.got[x.k]?' checked':'')+'><span class="n">'+esc(ING[x.k].n)+'<small>'+fmtQty(x.q,ING[x.k].u)+' · '+cedi(price(x.k))+' each</small></span><span class="p num">'+cedi(x.cost)+'</span></label>').join('')+'</div>';}
+    h+='<div class="tot"><span>Market total</span><span class="num">'+cedi(s.cook)+'</span></div>';
+    h+='<p class="note">Assumes salt, spices and anything already in your kitchen. Untick nothing; just skip what you already have.</p></section>';
+  }
+  if(s.buy){
+    h+='<section class="card"><div class="ch"><h2>Money for buying out</h2><span class="sub">Keep this aside</span></div>';
+    h+=Object.keys(s.buyCount).map(id=>{const x=meal(id);return '<div class="sitem" style="grid-template-columns:1fr auto"><span class="n">'+esc(x.n)+'<small>'+s.buyCount[id]+' × '+cedi(x.p)+'</small></span><span class="p num">'+cedi(x.p*s.buyCount[id])+'</span></div>';}).join('');
+    h+='<div class="tot"><span>Buying out total</span><span class="num">'+cedi(s.buy)+'</span></div></section>';
+  }
+  h+='<section class="card"><div class="tot" style="border:0;padding:0"><span>Whole week</span><span class="num">'+cedi(s.total)+'</span></div></section>';
+  return h;
+}
+function pricesView(){
+  const st=doc.settings;
+  let h='<section class="card"><div class="ch"><h2>Settings</h2></div><div class="two">'+
+    '<div class="field"><label for="sBudget">Weekly food budget</label><div class="cedi-in"><span>GH₵</span><input id="sBudget" inputmode="decimal" value="'+(st.budget||'')+'"></div></div>'+
+    '<div class="field"><label for="sPeople">People eating</label><select id="sPeople">'+[1,2,3,4,5,6].map(n=>'<option'+(n===st.people?' selected':'')+'>'+n+'</option>').join('')+'</select></div></div>'+
+    '<label class="sitem" style="grid-template-columns:24px 1fr;border:0"><input type="checkbox" id="sWork"'+(st.workLunch?' checked':'')+'><span class="n">I buy lunch at work on weekdays<small>“Fill empty meals” will plan a chop bar lunch Monday to Friday.</small></span></label>'+
+    '<p class="note">A GH₵ 750 monthly food budget is about GH₵ 175 a week.</p></section>';
+  h+='<section class="card"><div class="ch"><h2>Market prices</h2><button class="btn ghost sm" data-act="reset">Reset</button></div><p class="note">These start as rough guesses. Change them to what you actually pay at your market, and every cost in the app updates.</p>';
+  for(const sec of SECTIONS){h+='<div class="sect"><h3>'+sec+'</h3>'+Object.keys(ING).filter(k=>ING[k].s===sec).map(k=>'<div class="prow"><div class="n">'+esc(ING[k].n)+'<small>per '+esc(ING[k].u)+'</small></div><div class="cedi-in"><span>GH₵</span><input inputmode="decimal" data-price="'+k+'" value="'+price(k)+'" aria-label="Price of '+esc(ING[k].n)+'"></div></div>').join('')+'</div>';}
+  h+='</section>';
+  h+='<section class="card"><div class="ch"><h2>Bought meals</h2><span class="sub">Price per plate</span></div>';
+  h+=buyList().map(b=>'<div class="prow"><div class="n">'+esc(b.n)+(b.custom?' <button class="btn ghost sm" data-delcustom="'+esc(b.id)+'" style="padding:2px 8px;margin-left:4px">Remove</button>':'')+'</div><div class="cedi-in"><span>GH₵</span><input inputmode="decimal" data-buy="'+esc(b.id)+'" value="'+b.p+'" aria-label="Price of '+esc(b.n)+'"></div></div>').join('');
+  h+='<div class="two" style="margin-top:6px"><input type="text" id="cName" maxlength="40" placeholder="Add a meal you buy, e.g. Fried yam"><div class="cedi-in"><span>GH₵</span><input id="cPrice" inputmode="decimal" placeholder="0"></div></div><button class="btn ghost" data-act="addcustom">Add bought meal</button></section>';
+  return h;
+}
+
+/* ---------- meal picker ---------- */
+function openPicker(key){
+  const [d,m]=key.split('-'),w=week(),cur=w.slots[key],people=doc.settings.people||1;
+  const date=addDays(ui.week,Number(d));
+  const cooks=COOK.filter(c=>c.m.includes(m)).sort((a,b)=>perServing(a)-perServing(b));
+  const buys=buyList().filter(b=>b.m.includes(m)).sort((a,b)=>a.p-b.p);
+  const opt=(id,n,sub,c)=>'<button type="button" class="mopt" data-pick="'+esc(id)+'" aria-pressed="'+(cur===id)+'"><b>'+esc(n)+'</b><span class="c num">'+c+'</span><small>'+sub+'</small></button>';
+  $('#sheetHost').innerHTML='<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pT">'+
+    '<div class="ch"><h3 id="pT">'+MEAL_NAME[m]+' · '+DOW[d]+' '+date.getDate()+' '+MON[date.getMonth()]+'</h3><button class="btn ghost sm" id="pClose">Close</button></div>'+
+    '<div class="mgroup"><h4>Cook at home</h4><div class="mlist">'+cooks.map(c=>opt(c.id,c.n,'One batch makes '+c.sv+' · '+cedi(batchCost(c))+' a batch','~'+cedi(perServing(c)*people))).join('')+'</div></div>'+
+    '<div class="mgroup"><h4>Buy</h4><div class="mlist">'+buys.map(b=>opt(b.id,b.n,'Per plate',cedi(b.p*people))).join('')+'</div></div>'+
+    '<div class="mgroup"><h4>Other</h4><div class="mlist">'+opt('left','Leftovers','Eating something already cooked','GH₵ 0')+opt('skip','Skip / not eating','Fasting, eating at an event, travelling','')+
+    (cur?'<button type="button" class="mopt" data-pick=""><b>Clear this meal</b><span class="c"></span><small>Leave it unplanned</small></button>':'')+'</div></div></div></div>';
+  const close=()=>{$('#sheetHost').innerHTML='';document.removeEventListener('keydown',k);};
+  const k=e=>{if(e.key==='Escape')close();};document.addEventListener('keydown',k);
+  $('#scrim').onclick=e=>{if(e.target.id==='scrim')close();};$('#pClose').onclick=close;
+  $$('[data-pick]').forEach(b=>b.onclick=()=>{const v=b.dataset.pick;if(v)w.slots[key]=v;else delete w.slots[key];persist();close();render();});
+}
+
+/* ---------- events ---------- */
+$$('nav.tabs [data-tab]').forEach(b=>b.onclick=()=>{ui.tab=b.dataset.tab;render();window.scrollTo(0,0);});
+$('#prev').onclick=()=>{ui.week=addDays(ui.week,-7);render();};
+$('#next').onclick=()=>{ui.week=addDays(ui.week,7);render();};
+let confirmClear=false;
+$('#main').addEventListener('click',e=>{
+  const sl=e.target.closest('[data-slot]');if(sl){openPicker(sl.dataset.slot);return;}
+  const a=e.target.closest('[data-act]');if(a){const v=a.dataset.act;
+    if(v==='fill')autoFill();
+    else if(v==='clear'){if(!confirmClear){confirmClear=true;a.textContent='Tap again to clear';setTimeout(()=>{confirmClear=false;if(a.isConnected)a.textContent='Clear week';},3000);return;}confirmClear=false;week().slots={};week().got={};persist();render();toast('Week cleared');}
+    else if(v==='copy'){const prev=doc.weeks[ymd(addDays(ui.week,-7))];if(!prev||!Object.keys(prev.slots).length){toast('Nothing planned last week');return;}week().slots=Object.assign({},prev.slots);persist();render();toast('Copied last week’s plan');}
+    else if(v==='reset'){doc.prices={};doc.buyPrices={};persist();render();toast('Prices reset');}
+    else if(v==='addcustom'){const n=$('#cName').value.trim(),p=Number($('#cPrice').value.replace(/[^0-9.]/g,''));if(!n||!p){toast('Enter a name and a price');return;}doc.custom.push({id:'c_'+Date.now().toString(36),n,p});persist();render();toast('Added '+n);}
+    return;}
+  const dc=e.target.closest('[data-delcustom]');if(dc){doc.custom=doc.custom.filter(x=>x.id!==dc.dataset.delcustom);persist();render();}
+});
+$('#main').addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.got){week().got[t.dataset.got]=t.checked;persist();render();return;}
+  if(t.dataset.price){const v=Number(t.value.replace(/[^0-9.]/g,''));if(v>0)doc.prices[t.dataset.price]=v;persist();toast('Price updated');return;}
+  if(t.dataset.buy){const v=Number(t.value.replace(/[^0-9.]/g,''));if(v>0)doc.buyPrices[t.dataset.buy]=v;persist();toast('Price updated');return;}
+  if(t.id==='sBudget'){doc.settings.budget=Number(t.value.replace(/[^0-9.]/g,''))||0;persist();toast('Budget saved');}
+  if(t.id==='sPeople'){doc.settings.people=Number(t.value)||1;persist();toast('Saved');}
+  if(t.id==='sWork'){doc.settings.workLunch=t.checked;persist();}
+});
+init();
+})();
+</script>
+
+</body>
+</html>
